@@ -1,6 +1,9 @@
 #import <UIKit/UIKit.h>
 #import "GPUImageContext.h"
 
+
+typedef void (^GPUImageCallbackBlock)(void);
+
 typedef enum {
     kGPUImageFillModeStretch,                       // Stretch to fill the full view, which may distort the image outside of its normal aspect ratio
     kGPUImageFillModePreserveAspectRatio,           // Maintains the aspect ratio of the source image, adding bars of the specified background color
@@ -25,6 +28,8 @@ typedef enum {
 @property(readonly, nonatomic) CGSize sizeInPixels;
 
 @property(nonatomic) BOOL enabled;
+
+- (void)callOnNextPresentBuffer:(GPUImageCallbackBlock)callOnNextPresentBuffer;
 
 /** Handling fill mode
  

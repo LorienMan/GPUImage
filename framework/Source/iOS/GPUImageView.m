@@ -32,6 +32,8 @@
 // Handling fill mode
 - (void)recalculateViewGeometry;
 
+@property (atomic, copy) GPUImageCallbackBlock callbackOnNextPresentBuffer;
+
 @end
 
 @implementation GPUImageView
@@ -218,6 +220,12 @@
 {
     glBindRenderbuffer(GL_RENDERBUFFER, displayRenderbuffer);
     [[GPUImageContext sharedImageProcessingContext] presentBufferForDisplay];
+
+    GPUImageCallbackBlock local = [self.callbackOnNextPresentBuffer copy];
+    if (local) {
+        local();
+        self.callbackOnNextPresentBuffer = nil;
+    }
 }
 
 #pragma mark -
@@ -473,6 +481,10 @@
     {
         return _sizeInPixels;
     }
+}
+
+- (void)callOnNextPresentBuffer:(GPUImageCallbackBlock)callOnNextPresentBuffer {
+    self.callbackOnNextPresentBuffer = callOnNextPresentBuffer;
 }
 
 - (void)setFillMode:(GPUImageFillModeType)newValue;
