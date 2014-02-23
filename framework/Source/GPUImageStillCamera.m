@@ -236,12 +236,21 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     }
 
     NSString *path = [[NSBundle mainBundle] pathForResource:@"blank" ofType:@"wav"];
-    SystemSoundID soundID;
-    NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
-    AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
-    AudioServicesPlaySystemSound(soundID);
+    if (path) {
+        SystemSoundID soundID;
+        NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
+        AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
+        AudioServicesPlaySystemSound(soundID);
+    }
 
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
+        if (path) {
+            SystemSoundID soundID;
+            NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
+            AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
+            AudioServicesPlaySystemSound(soundID);
+        }
+
         if(imageSampleBuffer == NULL){
             block(error);
             return;
