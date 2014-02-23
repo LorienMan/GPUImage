@@ -320,8 +320,50 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         }
         CFRetain(imageSampleBuffer);
         dispatch_async(bufferProcessingQueue, ^{
-            if (block) {
-                block ([AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer], nil);
+
+            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
+
+            if ((self.cameraPosition == AVCaptureDevicePositionFront && self.horizontallyMirrorFrontFacingCamera) ||
+                (self.cameraPosition == AVCaptureDevicePositionBack && self.horizontallyMirrorRearFacingCamera)) {
+                UIImage *sourceImage = [UIImage imageWithData:imageData];
+                UIImageOrientation targetOrientation = sourceImage.imageOrientation;
+                switch (sourceImage.imageOrientation) {
+                    case UIImageOrientationUp:
+                        targetOrientation = UIImageOrientationDownMirrored;
+                        break;
+                    case UIImageOrientationDown:
+                        targetOrientation = UIImageOrientationUpMirrored;
+                        break;
+                    case UIImageOrientationLeft:
+                        targetOrientation = UIImageOrientationRightMirrored;
+                        break;
+                    case UIImageOrientationRight:
+                        targetOrientation = UIImageOrientationLeftMirrored;
+                        break;
+                    case UIImageOrientationUpMirrored:
+                        targetOrientation = UIImageOrientationDown;
+                        break;
+                    case UIImageOrientationDownMirrored:
+                        targetOrientation = UIImageOrientationUp;
+                        break;
+                    case UIImageOrientationLeftMirrored:
+                        targetOrientation = UIImageOrientationRight;
+                        break;
+                    case UIImageOrientationRightMirrored:
+                        targetOrientation = UIImageOrientationLeft;
+                        break;
+                }
+
+                UIImage *flippedImage = [UIImage imageWithCGImage:sourceImage.CGImage
+                                                            scale:sourceImage.scale orientation:targetOrientation];
+
+                if (block) {
+                    block (UIImageJPEGRepresentation(flippedImage, self.jpegCompressionQuality), nil);
+                }
+            } else {
+                if (block) {
+                    block (imageData, nil);
+                }
             }
 
             CFRelease(imageSampleBuffer);
