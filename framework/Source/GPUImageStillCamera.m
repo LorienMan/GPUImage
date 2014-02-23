@@ -53,6 +53,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
 @implementation GPUImageStillCamera {
     BOOL requiresFrontCameraTextureCacheCorruptionWorkaround;
+    dispatch_queue_t bufferProcessingQueue;
 }
 
 @synthesize currentCaptureMetadata = _currentCaptureMetadata;
@@ -77,33 +78,33 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
    
     // Having a still photo input set to BGRA and video to YUV doesn't work well, so since I don't have YUV resizing for iPhone 4 yet, kick back to BGRA for that device
 //    if (captureAsYUV && [GPUImageContext supportsFastTextureUpload])
-    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
-    {
-        BOOL supportsFullYUVRange = NO;
-        NSArray *supportedPixelFormats = photoOutput.availableImageDataCVPixelFormatTypes;
-        for (NSNumber *currentPixelFormat in supportedPixelFormats)
-        {
-            if ([currentPixelFormat intValue] == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
-            {
-                supportsFullYUVRange = YES;
-            }
-        }
-        
-        if (supportsFullYUVRange)
-        {
-            [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
-        }
-        else
-        {
-            [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
-        }
-    }
-    else
-    {
+//    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
+//    {
+//        BOOL supportsFullYUVRange = NO;
+//        NSArray *supportedPixelFormats = photoOutput.availableImageDataCVPixelFormatTypes;
+//        for (NSNumber *currentPixelFormat in supportedPixelFormats)
+//        {
+//            if ([currentPixelFormat intValue] == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+//            {
+//                supportsFullYUVRange = YES;
+//            }
+//        }
+//
+//        if (supportsFullYUVRange)
+//        {
+//            [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarFullRange] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
+//        }
+//        else
+//        {
+//            [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
+//        }
+//    }
+//    else
+//    {
         captureAsYUV = NO;
-        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
+        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:(id)AVVideoCodecJPEG forKey:(id)AVVideoCodecKey]];
         [videoOutput setVideoSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
-    }
+//    }
     
 //    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
 //    {
@@ -120,7 +121,9 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     [self.captureSession commitConfiguration];
     
     self.jpegCompressionQuality = 0.8;
-    
+
+    bufferProcessingQueue = dispatch_queue_create("gpuimage.buffer.process", 0);
+
     return self;
 }
 
@@ -232,59 +235,89 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
         return;
     }
 
+    NSString *path = [[NSBundle mainBundle] pathForResource:@"blank" ofType:@"wav"];
+    SystemSoundID soundID;
+    NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
+    AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
+    AudioServicesPlaySystemSound(soundID);
+
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
         if(imageSampleBuffer == NULL){
             block(error);
             return;
         }
+        CFRetain(imageSampleBuffer);
+        dispatch_async(bufferProcessingQueue, ^{
+            [self conserveMemoryForNextFrame];
 
-        [self conserveMemoryForNextFrame];
+            // For now, resize photos to fix within the max texture size of the GPU
+            CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(imageSampleBuffer);
 
-        // For now, resize photos to fix within the max texture size of the GPU
-        CVImageBufferRef cameraFrame = CMSampleBufferGetImageBuffer(imageSampleBuffer);
-        
-        CGSize sizeOfPhoto = CGSizeMake(CVPixelBufferGetWidth(cameraFrame), CVPixelBufferGetHeight(cameraFrame));
-        CGSize scaledImageSizeToFitOnGPU = [GPUImageContext sizeThatFitsWithinATextureForSize:sizeOfPhoto];
-        if (!CGSizeEqualToSize(sizeOfPhoto, scaledImageSizeToFitOnGPU))
-        {
-            CMSampleBufferRef sampleBuffer = NULL;
-            
-            if (CVPixelBufferGetPlaneCount(cameraFrame) > 0)
+            CGSize sizeOfPhoto = CGSizeMake(CVPixelBufferGetWidth(cameraFrame), CVPixelBufferGetHeight(cameraFrame));
+            CGSize scaledImageSizeToFitOnGPU = [GPUImageContext sizeThatFitsWithinATextureForSize:sizeOfPhoto];
+            if (!CGSizeEqualToSize(sizeOfPhoto, scaledImageSizeToFitOnGPU))
             {
-                NSAssert(NO, @"Error: no downsampling for YUV input in the framework yet");
+                CMSampleBufferRef sampleBuffer = NULL;
+
+                if (CVPixelBufferGetPlaneCount(cameraFrame) > 0)
+                {
+                    NSAssert(NO, @"Error: no downsampling for YUV input in the framework yet");
+                }
+                else
+                {
+                    GPUImageCreateResizedSampleBuffer(cameraFrame, scaledImageSizeToFitOnGPU, &sampleBuffer);
+                }
+
+                dispatch_semaphore_signal(frameRenderingSemaphore);
+                [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+                dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+                if (sampleBuffer != NULL)
+                    CFRelease(sampleBuffer);
             }
             else
             {
-                GPUImageCreateResizedSampleBuffer(cameraFrame, scaledImageSizeToFitOnGPU, &sampleBuffer);
+                // This is a workaround for the corrupt images that are sometimes returned when taking a photo with the front camera and using the iOS 5.0 texture caches
+                AVCaptureDevicePosition currentCameraPosition = [[videoInput device] position];
+                if ( (currentCameraPosition != AVCaptureDevicePositionFront) || (![GPUImageContext supportsFastTextureUpload]) || !requiresFrontCameraTextureCacheCorruptionWorkaround)
+                {
+                    dispatch_semaphore_signal(frameRenderingSemaphore);
+                    [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
+                    dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
+                }
             }
 
-            dispatch_semaphore_signal(frameRenderingSemaphore);
-            [self captureOutput:photoOutput didOutputSampleBuffer:sampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
-            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
-            if (sampleBuffer != NULL)
-                CFRelease(sampleBuffer);
-        }
-        else
-        {
-            // This is a workaround for the corrupt images that are sometimes returned when taking a photo with the front camera and using the iOS 5.0 texture caches
-            AVCaptureDevicePosition currentCameraPosition = [[videoInput device] position];
-            if ( (currentCameraPosition != AVCaptureDevicePositionFront) || (![GPUImageContext supportsFastTextureUpload]) || !requiresFrontCameraTextureCacheCorruptionWorkaround)
-            {
-                dispatch_semaphore_signal(frameRenderingSemaphore);
-                [self captureOutput:photoOutput didOutputSampleBuffer:imageSampleBuffer fromConnection:[[photoOutput connections] objectAtIndex:0]];
-                dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
-            }
-        }
-        
-        CFDictionaryRef metadata = CMCopyDictionaryOfAttachments(NULL, imageSampleBuffer, kCMAttachmentMode_ShouldPropagate);
-        _currentCaptureMetadata = (__bridge_transfer NSDictionary *)metadata;
+            CFDictionaryRef metadata = CMCopyDictionaryOfAttachments(NULL, imageSampleBuffer, kCMAttachmentMode_ShouldPropagate);
+            _currentCaptureMetadata = (__bridge_transfer NSDictionary *)metadata;
 
-        block(nil);
+            block(nil);
 
-        _currentCaptureMetadata = nil;
+            _currentCaptureMetadata = nil;
+            CFRelease(imageSampleBuffer);
+        });
     }];
 }
 
 
+- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(NSData *, NSError *))block {
+    if(photoOutput.isCapturingStillImage){
+        block(nil, [NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
+        return;
+    }
+
+    [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
+        if(imageSampleBuffer == NULL){
+            block(nil, error);
+            return;
+        }
+        CFRetain(imageSampleBuffer);
+        dispatch_async(bufferProcessingQueue, ^{
+            if (block) {
+                block ([AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer], nil);
+            }
+
+            CFRelease(imageSampleBuffer);
+        });
+    }];
+}
 
 @end

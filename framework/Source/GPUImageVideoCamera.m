@@ -269,7 +269,7 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 		NSLog(@"Couldn't add video output");
         return nil;
 	}
-    
+
 	_captureSessionPreset = sessionPreset;
     [_captureSession setSessionPreset:_captureSessionPreset];
 
