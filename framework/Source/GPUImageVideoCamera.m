@@ -510,6 +510,21 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     return [GPUImageVideoCamera isFrontFacingCameraPresent];
 }
 
+- (BOOL)supportsFlashMode:(AVCaptureFlashMode)mode {
+    return [_inputCamera isFlashModeSupported:mode];
+}
+
+- (AVCaptureFlashMode)flashMode {
+    return _inputCamera.flashMode;
+}
+
+- (void)setFlashMode:(AVCaptureFlashMode)newFlashMode {
+    if ([self supportsFlashMode:newFlashMode] && [_inputCamera lockForConfiguration:NULL]) {
+        [_inputCamera setFlashMode:newFlashMode];
+        [_inputCamera unlockForConfiguration];
+    }
+}
+
 - (void)setCaptureSessionPreset:(NSString *)captureSessionPreset;
 {
 	[_captureSession beginConfiguration];

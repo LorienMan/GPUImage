@@ -140,6 +140,12 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
  */
 - (void)rotateCamera;
 
+/** Flash setup
+ */
+- (BOOL)supportsFlashMode:(AVCaptureFlashMode)newFlashMode;
+- (AVCaptureFlashMode)flashMode;
+- (void)setFlashMode:(AVCaptureFlashMode)newFlashMode;
+
 /// @name Benchmarking
 
 /** When benchmarking is enabled, this will keep a running average of the time from uploading, processing, and final recording or display
