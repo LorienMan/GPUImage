@@ -525,6 +525,24 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     }
 }
 
+- (BOOL)supportsFocusPointOfInterest {
+    return [_inputCamera isFocusPointOfInterestSupported];
+}
+
+- (void)setFocusPointOfInterest:(CGPoint)point {
+    if ([self supportsFocusPointOfInterest] && [_inputCamera lockForConfiguration:NULL]) {
+        [_inputCamera setFocusPointOfInterest:point];
+        [_inputCamera unlockForConfiguration];
+    }
+}
+
+- (void)forceFocus {
+    if ([_inputCamera isFocusModeSupported:AVCaptureFocusModeAutoFocus] && [_inputCamera lockForConfiguration:NULL]) {
+        _inputCamera.focusMode = AVCaptureFocusModeAutoFocus;
+        [_inputCamera unlockForConfiguration];
+    }
+}
+
 - (void)setCaptureSessionPreset:(NSString *)captureSessionPreset;
 {
 	[_captureSession beginConfiguration];

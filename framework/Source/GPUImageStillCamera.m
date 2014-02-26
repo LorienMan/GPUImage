@@ -327,7 +327,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
                 (self.cameraPosition == AVCaptureDevicePositionBack && self.horizontallyMirrorRearFacingCamera)) {
                 UIImage *sourceImage = [UIImage imageWithData:imageData];
                 UIImageOrientation targetOrientation = sourceImage.imageOrientation;
-                switch (sourceImage.imageOrientation) {
+                switch (targetOrientation) {
                     case UIImageOrientationUp:
                         targetOrientation = UIImageOrientationDownMirrored;
                         break;

@@ -146,6 +146,15 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
 - (AVCaptureFlashMode)flashMode;
 - (void)setFlashMode:(AVCaptureFlashMode)newFlashMode;
 
+/** POI setup
+ */
+- (BOOL)supportsFocusPointOfInterest;
+- (void)setFocusPointOfInterest:(CGPoint)point;
+
+/** Force focus
+ */
+- (void)forceFocus;
+
 /// @name Benchmarking
 
 /** When benchmarking is enabled, this will keep a running average of the time from uploading, processing, and final recording or display
