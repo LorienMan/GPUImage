@@ -510,6 +510,10 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     return [GPUImageVideoCamera isFrontFacingCameraPresent];
 }
 
+- (BOOL)hasFlash {
+    return [_inputCamera isFlashAvailable];
+}
+
 - (BOOL)supportsFlashMode:(AVCaptureFlashMode)mode {
     return [_inputCamera isFlashModeSupported:mode];
 }

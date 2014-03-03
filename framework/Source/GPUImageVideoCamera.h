@@ -142,6 +142,7 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
 
 /** Flash setup
  */
+- (BOOL)hasFlash;
 - (BOOL)supportsFlashMode:(AVCaptureFlashMode)newFlashMode;
 - (AVCaptureFlashMode)flashMode;
 - (void)setFlashMode:(AVCaptureFlashMode)newFlashMode;
