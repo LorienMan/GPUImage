@@ -307,12 +307,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 }
 
 
-- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(NSData *, NSError *))block {
+- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(UIImage *, NSError *))block {
     if(photoOutput.isCapturingStillImage){
         block(nil, [NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
         return;
     }
-
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
         if(imageSampleBuffer == NULL){
             block(nil, error);
@@ -358,11 +357,11 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
                                                             scale:sourceImage.scale orientation:targetOrientation];
 
                 if (block) {
-                    block (UIImageJPEGRepresentation(flippedImage, self.jpegCompressionQuality), nil);
+                    block (flippedImage, nil);
                 }
             } else {
                 if (block) {
-                    block (imageData, nil);
+                    block ([UIImage imageWithData:imageData], nil);
                 }
             }
 

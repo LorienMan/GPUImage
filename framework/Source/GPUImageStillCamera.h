@@ -18,6 +18,5 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 - (void)capturePhotoAsJPEGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withCompletionHandler:(void (^)(NSData *processedJPEG, NSError *error))block;
 - (void)capturePhotoAsPNGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withCompletionHandler:(void (^)(NSData *processedPNG, NSError *error))block;
 
-- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(NSData *, NSError *))block;
-
+- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(UIImage *, NSError *))block;
 @end
