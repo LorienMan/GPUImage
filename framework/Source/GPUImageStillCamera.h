@@ -1,5 +1,7 @@
 #import "GPUImageVideoCamera.h"
 
+@class GPUImageFilter;
+
 void stillImageDataReleaseCallback(void *releaseRefCon, const void *baseAddress);
 void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize finalSize, CMSampleBufferRef *sampleBuffer);
 
@@ -18,5 +20,5 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 - (void)capturePhotoAsJPEGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withCompletionHandler:(void (^)(NSData *processedJPEG, NSError *error))block;
 - (void)capturePhotoAsPNGProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withCompletionHandler:(void (^)(NSData *processedPNG, NSError *error))block;
 
-- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(UIImage *, NSError *))block;
+- (void)simpleCapturePhotoAsImageWithFilter:(GPUImageFilter *)filter completionHandler:(void (^)(UIImage *, NSError *))block;
 @end

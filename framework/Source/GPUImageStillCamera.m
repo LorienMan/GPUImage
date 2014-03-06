@@ -1,6 +1,8 @@
 // 2448x3264 pixel image = 31,961,088 bytes for uncompressed RGBA
 
 #import "GPUImageStillCamera.h"
+#import "GPUImageFilter.h"
+#import "GPUImagePicture.h"
 
 void stillImageDataReleaseCallback(void *releaseRefCon, const void *baseAddress)
 {
@@ -102,7 +104,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 //    else
 //    {
         captureAsYUV = NO;
-        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:(id)AVVideoCodecJPEG forKey:(id)AVVideoCodecKey]];
+        [photoOutput setOutputSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
         [videoOutput setVideoSettings:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey]];
 //    }
     
@@ -228,35 +230,19 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
 - (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block
 {
-    dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
-
     if(photoOutput.isCapturingStillImage){
         block([NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
         return;
     }
 
-    NSString *path = [[NSBundle mainBundle] pathForResource:@"blank" ofType:@"wav"];
-    if (path) {
-        SystemSoundID soundID;
-        NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
-        AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
-        AudioServicesPlaySystemSound(soundID);
-    }
-
     [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
-        if (path) {
-            SystemSoundID soundID;
-            NSURL *filePath = [NSURL fileURLWithPath:path isDirectory:NO];
-            AudioServicesCreateSystemSoundID((__bridge CFURLRef)filePath, &soundID);
-            AudioServicesPlaySystemSound(soundID);
-        }
-
-        if(imageSampleBuffer == NULL){
+         if(imageSampleBuffer == NULL){
             block(error);
             return;
         }
         CFRetain(imageSampleBuffer);
         dispatch_async(bufferProcessingQueue, ^{
+            dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
             [self conserveMemoryForNextFrame];
 
             // For now, resize photos to fix within the max texture size of the GPU
@@ -307,67 +293,26 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 }
 
 
-- (void)simpleCapturePhotoAsImageWithCompletionHandler:(void (^)(UIImage *, NSError *))block {
-    if(photoOutput.isCapturingStillImage){
-        block(nil, [NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
-        return;
-    }
-    [photoOutput captureStillImageAsynchronouslyFromConnection:[[photoOutput connections] objectAtIndex:0] completionHandler:^(CMSampleBufferRef imageSampleBuffer, NSError *error) {
-        if(imageSampleBuffer == NULL){
-            block(nil, error);
-            return;
-        }
-        CFRetain(imageSampleBuffer);
-        dispatch_async(bufferProcessingQueue, ^{
+- (void)simpleCapturePhotoAsImageWithFilter:(GPUImageFilter *)filter completionHandler:(void (^)(UIImage *, NSError *))block {
+    //    reportAvailableMemoryForGPUImage(@"Before Capture");
 
-            NSData *imageData = [AVCaptureStillImageOutput jpegStillImageNSDataRepresentation:imageSampleBuffer];
-
-            if ((self.cameraPosition == AVCaptureDevicePositionFront && self.horizontallyMirrorFrontFacingCamera) ||
-                (self.cameraPosition == AVCaptureDevicePositionBack && self.horizontallyMirrorRearFacingCamera)) {
-                UIImage *sourceImage = [UIImage imageWithData:imageData];
-                UIImageOrientation targetOrientation = sourceImage.imageOrientation;
-                switch (targetOrientation) {
-                    case UIImageOrientationUp:
-                        targetOrientation = UIImageOrientationDownMirrored;
-                        break;
-                    case UIImageOrientationDown:
-                        targetOrientation = UIImageOrientationUpMirrored;
-                        break;
-                    case UIImageOrientationLeft:
-                        targetOrientation = UIImageOrientationRightMirrored;
-                        break;
-                    case UIImageOrientationRight:
-                        targetOrientation = UIImageOrientationLeftMirrored;
-                        break;
-                    case UIImageOrientationUpMirrored:
-                        targetOrientation = UIImageOrientationDown;
-                        break;
-                    case UIImageOrientationDownMirrored:
-                        targetOrientation = UIImageOrientationUp;
-                        break;
-                    case UIImageOrientationLeftMirrored:
-                        targetOrientation = UIImageOrientationRight;
-                        break;
-                    case UIImageOrientationRightMirrored:
-                        targetOrientation = UIImageOrientationLeft;
-                        break;
-                }
-
-                UIImage *flippedImage = [UIImage imageWithCGImage:sourceImage.CGImage
-                                                            scale:sourceImage.scale orientation:targetOrientation];
-
-                if (block) {
-                    block (flippedImage, nil);
-                }
-            } else {
-                if (block) {
-                    block ([UIImage imageWithData:imageData], nil);
-                }
+    [self capturePhotoProcessedUpToFilter:filter withImageOnGPUHandler:^(NSError *error) {
+        UIImage *filteredPhoto = nil;
+        if(!error){
+            @autoreleasepool {
+                filteredPhoto = [filter imageFromCurrentlyProcessedOutput];
+                dispatch_semaphore_signal(frameRenderingSemaphore);
+//                reportAvailableMemoryForGPUImage(@"After UIImage generation");
             }
+//            reportAvailableMemoryForGPUImage(@"After autorelease pool");
+        }else{
+            dispatch_semaphore_signal(frameRenderingSemaphore);
+        }
 
-            CFRelease(imageSampleBuffer);
-        });
+        block(filteredPhoto, error);
     }];
+
+    return;
 }
 
 @end
