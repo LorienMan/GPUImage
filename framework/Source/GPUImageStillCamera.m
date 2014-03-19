@@ -75,7 +75,7 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     requiresFrontCameraTextureCacheCorruptionWorkaround = [[[UIDevice currentDevice] systemVersion] compare:@"6.0" options:NSNumericSearch] == NSOrderedAscending;
     
     [self.captureSession beginConfiguration];
-    
+
     photoOutput = [[AVCaptureStillImageOutput alloc] init];
    
     // Having a still photo input set to BGRA and video to YUV doesn't work well, so since I don't have YUV resizing for iPhone 4 yet, kick back to BGRA for that device
@@ -121,6 +121,9 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     [self.captureSession addOutput:photoOutput];
     
     [self.captureSession commitConfiguration];
+
+    self.captureSession.usesApplicationAudioSession = YES;
+    self.captureSession.automaticallyConfiguresApplicationAudioSession = NO;
     
     self.jpegCompressionQuality = 0.8;
 
