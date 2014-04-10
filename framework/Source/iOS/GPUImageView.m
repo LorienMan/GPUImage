@@ -32,11 +32,11 @@
 // Handling fill mode
 - (void)recalculateViewGeometry;
 
-@property (atomic, copy) GPUImageCallbackBlock callbackOnNextPresentBuffer;
-
 @end
 
-@implementation GPUImageView
+@implementation GPUImageView {
+    NSMutableArray *_nextPresentBufferBlocks;
+}
 
 @synthesize sizeInPixels = _sizeInPixels;
 @synthesize fillMode = _fillMode;
@@ -76,6 +76,8 @@
 
 - (void)commonInit;
 {
+    _nextPresentBufferBlocks = [NSMutableArray array];
+
     // Set scaling to account for Retina display	
     if ([self respondsToSelector:@selector(setContentScaleFactor:)])
     {
@@ -220,12 +222,6 @@
 {
     glBindRenderbuffer(GL_RENDERBUFFER, displayRenderbuffer);
     [[GPUImageContext sharedImageProcessingContext] presentBufferForDisplay];
-
-    GPUImageCallbackBlock local = [self.callbackOnNextPresentBuffer copy];
-    if (local) {
-        local();
-        self.callbackOnNextPresentBuffer = nil;
-    }
 }
 
 #pragma mark -
@@ -373,22 +369,31 @@
 - (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex;
 {
     runSynchronouslyOnVideoProcessingQueue(^{
-        [GPUImageContext setActiveShaderProgram:displayProgram];
-        [self setDisplayFramebuffer];
-        
-        glClearColor(backgroundColorRed, backgroundColorGreen, backgroundColorBlue, backgroundColorAlpha);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, inputTextureForDisplay);
-        glUniform1i(displayInputTextureUniform, 4);
-        
-        glVertexAttribPointer(displayPositionAttribute, 2, GL_FLOAT, 0, 0, imageVertices);
-        glVertexAttribPointer(displayTextureCoordinateAttribute, 2, GL_FLOAT, 0, 0, [GPUImageView textureCoordinatesForRotation:inputRotation]);
-        
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        
-        [self presentFramebuffer];
+        if (self.enabled) {
+            [GPUImageContext setActiveShaderProgram:displayProgram];
+            [self setDisplayFramebuffer];
+
+            glClearColor(backgroundColorRed, backgroundColorGreen, backgroundColorBlue, backgroundColorAlpha);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, inputTextureForDisplay);
+            glUniform1i(displayInputTextureUniform, 4);
+
+            glVertexAttribPointer(displayPositionAttribute, 2, GL_FLOAT, 0, 0, imageVertices);
+            glVertexAttribPointer(displayTextureCoordinateAttribute, 2, GL_FLOAT, 0, 0, [GPUImageView textureCoordinatesForRotation:inputRotation]);
+
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+            [self presentFramebuffer];
+        }
+
+		dispatch_async(dispatch_get_main_queue(), ^{
+            for (GPUImageCallbackBlock block in _nextPresentBufferBlocks) {
+                block();
+            }
+            [_nextPresentBufferBlocks removeAllObjects];
+        });
     });
 }
 
@@ -484,7 +489,7 @@
 }
 
 - (void)callOnNextPresentBuffer:(GPUImageCallbackBlock)callOnNextPresentBuffer {
-    self.callbackOnNextPresentBuffer = callOnNextPresentBuffer;
+    [_nextPresentBufferBlocks addObject:[callOnNextPresentBuffer copy]];
 }
 
 - (void)setFillMode:(GPUImageFillModeType)newValue;
