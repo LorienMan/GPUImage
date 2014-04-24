@@ -388,12 +388,14 @@
             [self presentFramebuffer];
         }
 
-		dispatch_async(dispatch_get_main_queue(), ^{
-            for (GPUImageCallbackBlock block in _nextPresentBufferBlocks) {
-                block();
-            }
-            [_nextPresentBufferBlocks removeAllObjects];
-        });
+        if (_nextPresentBufferBlocks.count) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                for (GPUImageCallbackBlock block in _nextPresentBufferBlocks) {
+                    block();
+                }
+                [_nextPresentBufferBlocks removeAllObjects];
+            });
+        }
     });
 }
 
