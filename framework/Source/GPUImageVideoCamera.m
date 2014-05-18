@@ -231,7 +231,7 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 	// Add the video frame output	
 	videoOutput = [[AVCaptureVideoDataOutput alloc] init];
 	[videoOutput setAlwaysDiscardsLateVideoFrames:NO];
-    
+
 //    if (captureAsYUV && [GPUImageContext deviceSupportsRedTextures])
     if (captureAsYUV && [GPUImageContext supportsFastTextureUpload])
     {
@@ -282,6 +282,11 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 //        conn.videoMaxFrameDuration = CMTimeMake(1,60);
     
     [_captureSession commitConfiguration];
+
+//    if (self.videoCaptureConnection.supportsVideoStabilization) {
+//        NSLog(@"STABILIZATION ENABLED. OLD VALUE:%d", self.videoCaptureConnection.isVideoStabilizationEnabled);
+//        self.videoCaptureConnection.enablesVideoStabilizationWhenAvailable = YES;
+//    }
     
 	return self;
 }

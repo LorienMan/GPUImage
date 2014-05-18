@@ -15,23 +15,25 @@ extern NSString *const kGPUImageColorSwizzlingFragmentShaderString;
 @interface GPUImageMovieWriter : NSObject <GPUImageInput>
 {
     BOOL alreadyFinishedRecording;
-    
+
     NSURL *movieURL;
     NSString *fileType;
-	AVAssetWriter *assetWriter;
-	AVAssetWriterInput *assetWriterAudioInput;
-	AVAssetWriterInput *assetWriterVideoInput;
+    AVAssetWriterInput *assetWriterAudioInput;
+    AVAssetWriterInput *assetWriterVideoInput;
     AVAssetWriterInputPixelBufferAdaptor *assetWriterPixelBufferInput;
-	dispatch_queue_t movieWritingQueue;
-    
+    dispatch_queue_t movieWritingQueue;
+
     CVOpenGLESTextureCacheRef coreVideoTextureCache;
     CVPixelBufferRef renderTarget;
     CVOpenGLESTextureRef renderTexture;
 
     CGSize videoSize;
     GPUImageRotationMode inputRotation;
-    
+
     __unsafe_unretained id<GPUImageTextureDelegate> textureDelegate;
+
+@public
+    AVAssetWriter *assetWriter;
 }
 
 @property(readwrite, nonatomic) BOOL hasAudioTrack;
@@ -64,5 +66,8 @@ extern NSString *const kGPUImageColorSwizzlingFragmentShaderString;
 - (void)cancelRecording;
 - (void)processAudioBuffer:(CMSampleBufferRef)audioBuffer;
 - (void)enableSynchronizationCallbacks;
+
+- (void)processImageAtNextAudioBuffer:(UIImage *)image;
+- (UIImage *)processingImageAtNextAudioBuffer;
 
 @end
