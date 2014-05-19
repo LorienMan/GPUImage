@@ -461,7 +461,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
             else if( ! [assetWriterAudioInput appendSampleBuffer:audioBuffer] )
             {
                 NSLog(@"Problem appending audio buffer at time: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, currentSampleTime)));
-                NSLog(@"assetWriter.status = %i", assetWriter.status);
+                NSLog(@"assetWriter.status = %li", (long) assetWriter.status);
                 NSLog(@"assetWriter.error = %@", assetWriter.error);
                 isRecording = NO;
                 _paused = NO;
@@ -630,7 +630,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
         NSLog(@"Problem appending pixel buffer at time: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, frameTime)));
         isRecording = NO;
         _paused = NO;
-        NSLog(@"assetWriter.status = %i", assetWriter.status);
+        NSLog(@"assetWriter.status = %li", (long) assetWriter.status);
         NSLog(@"assetWriter.error = %@", assetWriter.error);
     }
     else
@@ -988,7 +988,7 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
             NSLog(@"Problem appending pixel buffer at time: %@", CFBridgingRelease(CMTimeCopyDescription(kCFAllocatorDefault, frameTime)));
             isRecording = NO;
             _paused = NO;
-            NSLog(@"assetWriter.status = %i", assetWriter.status);
+            NSLog(@"assetWriter.status = %li", (long) assetWriter.status);
             NSLog(@"assetWriter.error = %@", assetWriter.error);
         }
         else
