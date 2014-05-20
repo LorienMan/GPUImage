@@ -546,6 +546,11 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 }
 
 - (void)forceFocus {
+    AVCaptureFocusMode currentMode = _inputCamera.focusMode;
+    if (currentMode != AVCaptureFocusModeContinuousAutoFocus) {
+        return;
+    }
+
     if ([_inputCamera isFocusModeSupported:AVCaptureFocusModeAutoFocus] && [_inputCamera lockForConfiguration:NULL]) {
         _inputCamera.focusMode = AVCaptureFocusModeAutoFocus;
         [_inputCamera unlockForConfiguration];
@@ -555,6 +560,10 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     double delayInSeconds = 2.0;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+        if (localDevice.focusMode != AVCaptureFocusModeAutoFocus) {
+            return;
+        }
+        
         if ([localDevice isFocusModeSupported:AVCaptureFocusModeContinuousAutoFocus] && [localDevice lockForConfiguration:NULL]) {
             localDevice.focusMode = AVCaptureFocusModeContinuousAutoFocus;
             [localDevice unlockForConfiguration];
