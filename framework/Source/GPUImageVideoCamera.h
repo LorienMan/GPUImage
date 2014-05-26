@@ -154,7 +154,7 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
 
 /** Force focus
  */
-- (void)forceFocus;
+- (void)forceContinuousAutoFocus;
 
 /// @name Benchmarking
 
