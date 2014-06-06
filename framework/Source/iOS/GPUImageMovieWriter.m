@@ -579,8 +579,8 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
 
 - (void)clearBufferAtNextAudioBuffer {
     if (_bufferToProcessAtNextAudioBuffer) {
-        _bufferToProcessAtNextAudioBuffer = nil;
         CVPixelBufferRelease(_bufferToProcessAtNextAudioBuffer);
+        _bufferToProcessAtNextAudioBuffer = nil;
     }
 }
 
