@@ -4,6 +4,7 @@
 #import "GPUImageContext.h"
 #import "GPUImageFilter.h"
 #import <AVFoundation/AVFoundation.h>
+#import <CoreMedia/CoreMedia.h>
 
 #pragma mark -
 #pragma mark Private methods and instance variables
@@ -36,6 +37,7 @@
 
 @implementation GPUImageView {
     NSMutableArray *_nextPresentBufferBlocks;
+    CMTime _lastDisplayTime;
 }
 
 @synthesize sizeInPixels = _sizeInPixels;
@@ -76,6 +78,8 @@
 
 - (void)commonInit;
 {
+    _lastDisplayTime = kCMTimeInvalid;
+
     _nextPresentBufferBlocks = [NSMutableArray array];
 
     // Set scaling to account for Retina display	
@@ -368,6 +372,16 @@
 
 - (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex;
 {
+    if (CMTIME_IS_INVALID(frameTime)) {
+        return;
+    }
+
+    if (CMTIME_IS_VALID(_lastDisplayTime) && CMTIME_COMPARE_INLINE(_lastDisplayTime, >, frameTime)) {
+        return;
+    }
+
+    _lastDisplayTime = frameTime;
+
     runSynchronouslyOnVideoProcessingQueue(^{
         if (self.enabled) {
             [GPUImageContext setActiveShaderProgram:displayProgram];
