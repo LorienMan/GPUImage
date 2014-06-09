@@ -147,6 +147,13 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
 - (AVCaptureFlashMode)flashMode;
 - (void)setFlashMode:(AVCaptureFlashMode)newFlashMode;
 
+/** Torch setup
+ */
+- (BOOL)hasTorch;
+- (BOOL)supportsTorchMode:(AVCaptureTorchMode)newTorchMode;
+- (AVCaptureTorchMode)torchMode;
+- (void)setTorchMode:(AVCaptureTorchMode)newTorchMode;
+
 /** POI setup
  */
 - (BOOL)supportsFocusPointOfInterest;
