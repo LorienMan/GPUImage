@@ -294,10 +294,9 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 - (void)dealloc 
 {
     [self stopCameraCapture];
-    [videoOutput setSampleBufferDelegate:nil queue:dispatch_get_main_queue()];
-    [audioOutput setSampleBufferDelegate:nil queue:dispatch_get_main_queue()];
-    
     [self removeInputsAndOutputs];
+    [videoOutput setSampleBufferDelegate:nil queue:nil];
+    [audioOutput setSampleBufferDelegate:nil queue:nil];
     
     if ([GPUImageContext supportsFastTextureUpload])
     {
@@ -878,7 +877,7 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 
 - (void)processAudioSampleBuffer:(CMSampleBufferRef)sampleBuffer;
 {
-    [self.audioEncodingTarget processAudioBuffer:sampleBuffer]; 
+    [self.audioEncodingTarget processAudioBuffer:sampleBuffer];
 }
 
 - (void)convertYUVToRGBOutput;
