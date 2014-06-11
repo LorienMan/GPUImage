@@ -533,6 +533,25 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     }
 }
 
+- (BOOL)hasTorch {
+    return [_inputCamera isTorchAvailable];
+}
+
+- (BOOL)supportsTorchMode:(AVCaptureTorchMode)mode {
+    return [_inputCamera isTorchModeSupported:mode];
+}
+
+- (AVCaptureTorchMode)torchMode {
+    return _inputCamera.torchMode;
+}
+
+- (void)setTorchMode:(AVCaptureTorchMode)newTorchMode {
+    if ([self supportsTorchMode:newTorchMode] && [_inputCamera lockForConfiguration:NULL]) {
+        [_inputCamera setTorchMode:newTorchMode];
+        [_inputCamera unlockForConfiguration];
+    }
+}
+
 - (BOOL)supportsFocusPointOfInterest {
     return [_inputCamera isFocusPointOfInterestSupported];
 }
