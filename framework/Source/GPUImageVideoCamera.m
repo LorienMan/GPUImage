@@ -293,10 +293,19 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
 
 - (void)dealloc 
 {
-    [self stopCameraCapture];
     [self removeInputsAndOutputs];
     [videoOutput setSampleBufferDelegate:nil queue:nil];
     [audioOutput setSampleBufferDelegate:nil queue:nil];
+
+    [self stopCameraCapture];
+    
+    AVCaptureSession *localCaptureSession = _captureSession;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // Workaround to save capture session while all things release
+        if ([localCaptureSession isRunning]) {
+            [localCaptureSession stopRunning];
+        }
+    });
     
     if ([GPUImageContext supportsFastTextureUpload])
     {
