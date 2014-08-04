@@ -345,7 +345,6 @@ NSString *const kGPUImageColorSwizzlingFragmentShaderString = SHADER_STRING
             }
             isRecording = NO;
             _paused = NO;
-            [assetWriter endSessionAtSourceTime:previousFrameTime];
 #if (!defined(__IPHONE_6_0) || (__IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_6_0))
             // Not iOS 6 SDK
             [assetWriter finishWriting];
