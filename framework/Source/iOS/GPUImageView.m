@@ -11,17 +11,21 @@
 
 @interface GPUImageView () 
 {
-    GLuint inputTextureForDisplay;
+    GPUImageFramebuffer *inputFramebufferForDisplay;
     GLuint displayRenderbuffer, displayFramebuffer;
     
     GLProgram *displayProgram;
     GLint displayPositionAttribute, displayTextureCoordinateAttribute;
     GLint displayInputTextureUniform;
-    
+
     CGSize inputImageSize;
     GLfloat imageVertices[8];
     GLfloat backgroundColorRed, backgroundColorGreen, backgroundColorBlue, backgroundColorAlpha;
+
+    CGSize boundsSizeAtFrameBufferEpoch;
 }
+
+@property (assign, nonatomic) NSUInteger aspectRatio;
 
 // Initialization and teardown
 - (void)commonInit;
@@ -40,6 +44,7 @@
     CMTime _lastDisplayTime;
 }
 
+@synthesize aspectRatio;
 @synthesize sizeInPixels = _sizeInPixels;
 @synthesize fillMode = _fillMode;
 @synthesize enabled;
@@ -131,14 +136,14 @@
         _fillMode = kGPUImageFillModePreserveAspectRatio;
         [self createDisplayFramebuffer];
     });
-        
-    [self addObserver:self forKeyPath:@"frame" options:0 context:NULL];
 }
 
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
-{
-    if (object == self && [keyPath isEqualToString:@"frame"] && (!CGSizeEqualToSize(self.bounds.size, CGSizeZero)))
-    {
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    
+    // The frame buffer needs to be trashed and re-created when the view size changes.
+    if (!CGSizeEqualToSize(self.bounds.size, boundsSizeAtFrameBufferEpoch) &&
+        !CGSizeEqualToSize(self.bounds.size, CGSizeZero)) {
         runSynchronouslyOnVideoProcessingQueue(^{
             [self destroyDisplayFramebuffer];
             [self createDisplayFramebuffer];
@@ -149,8 +154,6 @@
 
 - (void)dealloc
 {
-    [self removeObserver:self forKeyPath:@"frame"];
-    
     runSynchronouslyOnVideoProcessingQueue(^{
         [self destroyDisplayFramebuffer];
     });
@@ -163,18 +166,18 @@
 {
     [GPUImageContext useImageProcessingContext];
     
-	glGenFramebuffers(1, &displayFramebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, displayFramebuffer);
+    glGenFramebuffers(1, &displayFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, displayFramebuffer);
 	
-	glGenRenderbuffers(1, &displayRenderbuffer);
-	glBindRenderbuffer(GL_RENDERBUFFER, displayRenderbuffer);
+    glGenRenderbuffers(1, &displayRenderbuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, displayRenderbuffer);
 	
-	[[[GPUImageContext sharedImageProcessingContext] context] renderbufferStorage:GL_RENDERBUFFER fromDrawable:(CAEAGLLayer*)self.layer];
+    [[[GPUImageContext sharedImageProcessingContext] context] renderbufferStorage:GL_RENDERBUFFER fromDrawable:(CAEAGLLayer*)self.layer];
 	
     GLint backingWidth, backingHeight;
 
-	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &backingWidth);
-	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &backingHeight);
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &backingWidth);
+    glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &backingHeight);
     
     if ( (backingWidth == 0) || (backingHeight == 0) )
     {
@@ -185,12 +188,13 @@
     _sizeInPixels.width = (CGFloat)backingWidth;
     _sizeInPixels.height = (CGFloat)backingHeight;
 
-//	NSLog(@"Backing width: %d, height: %d", backingWidth, backingHeight);
+//    NSLog(@"Backing width: %d, height: %d", backingWidth, backingHeight);
 
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, displayRenderbuffer);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, displayRenderbuffer);
 	
     GLuint framebufferCreationStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     NSAssert(framebufferCreationStatus == GL_FRAMEBUFFER_COMPLETE, @"Failure with display framebuffer generation for display of size: %f, %f", self.bounds.size.width, self.bounds.size.height);
+    boundsSizeAtFrameBufferEpoch = self.bounds.size;
 }
 
 - (void)destroyDisplayFramebuffer;
@@ -365,6 +369,8 @@
         case kGPUImageRotateRightFlipHorizontal: return rotateRightHorizontalFlipTextureCoordinates;
         case kGPUImageRotate180: return rotate180TextureCoordinates;
     }
+
+    return noRotationTextureCoordinates;
 }
 
 #pragma mark -
@@ -391,7 +397,7 @@
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, inputTextureForDisplay);
+            glBindTexture(GL_TEXTURE_2D, [inputFramebufferForDisplay texture]);
             glUniform1i(displayInputTextureUniform, 4);
 
             glVertexAttribPointer(displayPositionAttribute, 2, GL_FLOAT, 0, 0, imageVertices);
@@ -401,6 +407,9 @@
 
             [self presentFramebuffer];
         }
+
+        [inputFramebufferForDisplay unlock];
+        inputFramebufferForDisplay = nil;
     });
 
     if (_nextPresentBufferBlocks.count) {
@@ -418,9 +427,10 @@
     return 0;
 }
 
-- (void)setInputTexture:(GLuint)newInputTexture atIndex:(NSInteger)textureIndex;
+- (void)setInputFramebuffer:(GPUImageFramebuffer *)newInputFramebuffer atIndex:(NSInteger)textureIndex;
 {
-    inputTextureForDisplay = newInputTexture;
+    inputFramebufferForDisplay = newInputFramebuffer;
+    [inputFramebufferForDisplay lock];
 }
 
 - (void)setInputRotation:(GPUImageRotationMode)newInputRotation atIndex:(NSInteger)textureIndex;
@@ -467,16 +477,6 @@
 - (BOOL)shouldIgnoreUpdatesToThisTarget;
 {
     return NO;
-}
-
-- (void)setTextureDelegate:(id<GPUImageTextureDelegate>)newTextureDelegate atIndex:(NSInteger)textureIndex;
-{
-    textureDelegate = newTextureDelegate;
-}
-
-- (void)conserveMemoryForNextFrame;
-{
-    
 }
 
 - (BOOL)wantsMonochromeInput;

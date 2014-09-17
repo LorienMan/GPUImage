@@ -387,6 +387,17 @@
             
             filter = [[GPUImageHistogramFilter alloc] initWithHistogramType:kGPUImageHistogramRGB];
         }; break;
+                case GPUIMAGE_HISTOGRAM_EQUALIZATION:
+        {
+            self.title = @"Histogram Equalization";
+            self.filterSettingsSlider.hidden = NO;
+            
+            [self.filterSettingsSlider setMinimumValue:4.0];
+            [self.filterSettingsSlider setMaximumValue:32.0];
+            [self.filterSettingsSlider setValue:16.0];
+            
+            filter = [[GPUImageHistogramEqualizationFilter alloc] initWithHistogramType:kGPUImageHistogramLuminance];
+        }; break;
 		case GPUIMAGE_THRESHOLD:
         {
             self.title = @"Luminance Threshold";
@@ -882,9 +893,7 @@
             [(GPUImageMosaicFilter *)filter setColorOn:NO];
             //[(GPUImageMosaicFilter *)filter setTileSet:@"dotletterstiles.png"];
             //[(GPUImageMosaicFilter *)filter setTileSet:@"curvies.png"]; 
-            
-            [filter setInputRotation:kGPUImageRotateRight atIndex:0];
-            
+                        
         }; break;
         case GPUIMAGE_CHROMAKEY:
         {
@@ -1160,7 +1169,7 @@
             self.title = @"Box Blur";
             self.filterSettingsSlider.hidden = NO;
             
-            [self.filterSettingsSlider setMinimumValue:1.0];
+            [self.filterSettingsSlider setMinimumValue:0.0];
             [self.filterSettingsSlider setMaximumValue:24.0];
             [self.filterSettingsSlider setValue:2.0];
             
@@ -1323,8 +1332,9 @@
 				inputImage = [UIImage imageNamed:@"WID-small.jpg"];
 			}
 			
+//            sourcePicture = [[GPUImagePicture alloc] initWithImage:inputImage smoothlyScaleOutput:NO];
             sourcePicture = [[GPUImagePicture alloc] initWithImage:inputImage smoothlyScaleOutput:YES];
-            [sourcePicture processImage];            
+            [sourcePicture processImage];
             [sourcePicture addTarget:filter];
         }
 
@@ -1421,7 +1431,6 @@
         }
         else if (filterType == GPUIMAGE_BUFFER)
         {
-            
             GPUImageDifferenceBlendFilter *blendFilter = [[GPUImageDifferenceBlendFilter alloc] init];
 
             [videoCamera removeTarget:filter];
@@ -1570,6 +1579,7 @@
         case GPUIMAGE_WHITEBALANCE: [(GPUImageWhiteBalanceFilter *)filter setTemperature:[(UISlider *)sender value]]; break;
         case GPUIMAGE_SHARPEN: [(GPUImageSharpenFilter *)filter setSharpness:[(UISlider *)sender value]]; break;
         case GPUIMAGE_HISTOGRAM: [(GPUImageHistogramFilter *)filter setDownsamplingFactor:round([(UISlider *)sender value])]; break;
+        case GPUIMAGE_HISTOGRAM_EQUALIZATION: [(GPUImageHistogramEqualizationFilter *)filter setDownsamplingFactor:round([(UISlider *)sender value])]; break;
         case GPUIMAGE_UNSHARPMASK: [(GPUImageUnsharpMaskFilter *)filter setIntensity:[(UISlider *)sender value]]; break;
 //        case GPUIMAGE_UNSHARPMASK: [(GPUImageUnsharpMaskFilter *)filter setBlurSize:[(UISlider *)sender value]]; break;
         case GPUIMAGE_GAMMA: [(GPUImageGammaFilter *)filter setGamma:[(UISlider *)sender value]]; break;
