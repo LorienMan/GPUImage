@@ -388,6 +388,7 @@
 
     _lastDisplayTime = frameTime;
 
+    __block BOOL rendered = NO;
     runSynchronouslyOnVideoProcessingQueue(^{
         if (self.enabled) {
             [GPUImageContext setActiveShaderProgram:displayProgram];
@@ -406,6 +407,7 @@
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
             [self presentFramebuffer];
+            rendered = YES;
         }
 
         [inputFramebufferForDisplay unlock];
@@ -414,6 +416,10 @@
 
     if (_nextPresentBufferBlocks.count) {
         dispatch_async(dispatch_get_main_queue(), ^{
+            if (!self.enabled || !rendered) {
+                return;
+            }
+
             for (GPUImageCallbackBlock block in _nextPresentBufferBlocks) {
                 block();
             }
