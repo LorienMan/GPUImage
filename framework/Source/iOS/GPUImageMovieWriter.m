@@ -408,7 +408,10 @@ void main()
         {
             audioBuffer = [self adjustTime:audioBuffer by:pausingTimeDiff];
         }
-        CFRetain(audioBuffer);
+        else
+        {
+            CFRetain(audioBuffer);
+        }
 
         if (CMTIME_IS_INVALID(startTime))
         {
