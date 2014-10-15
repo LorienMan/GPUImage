@@ -166,38 +166,36 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
     [self capturePhotoProcessedUpToFilter:finalFilterInChain withImageOnGPUHandler:^(NSError *error) {
         UIImage *filteredPhoto = nil;
 
-        // Try to obtain image orientation from EXIF
-        NSArray *accData = nil;
-        if ([_currentCaptureMetadata[@"{MakerApple}"] isKindOfClass:[NSDictionary class]] &&
-            [_currentCaptureMetadata[@"{MakerApple}"][@"8"] isKindOfClass:[NSArray class]]) {
-            accData = _currentCaptureMetadata[@"{MakerApple}"][@"8"];
-        }
-
-        if (accData.count == 3) {
-            UIImageOrientation orientation = UIImageOrientationUp;
-            if ([accData[0] isKindOfClass:[NSNumber class]] && [accData[0] floatValue] >= 0.75) {
-                orientation = UIImageOrientationRight;
-            }
-            else if ([accData[0] isKindOfClass:[NSNumber class]] && [accData[0] floatValue] <= -0.75) {
-                orientation = UIImageOrientationLeft;
-            }
-            else if ([accData[1] isKindOfClass:[NSNumber class]] && [accData[1] floatValue] <= -0.75) {
-                orientation = UIImageOrientationUp;
-            }
-            else if ([accData[1] isKindOfClass:[NSNumber class]] && [accData[1] floatValue] >= 0.75) {
-                orientation = UIImageOrientationDown;
+        if (!error) {
+            // Try to obtain image orientation from EXIF
+            NSArray *accData = nil;
+            if ([_currentCaptureMetadata[@"{MakerApple}"] isKindOfClass:[NSDictionary class]] &&
+                    [_currentCaptureMetadata[@"{MakerApple}"][@"8"] isKindOfClass:[NSArray class]]) {
+                accData = _currentCaptureMetadata[@"{MakerApple}"][@"8"];
             }
 
-            if(!error){
+            if (accData.count == 3) {
+                UIImageOrientation orientation = UIImageOrientationUp;
+                if ([accData[0] isKindOfClass:[NSNumber class]] && [accData[0] floatValue] >= 0.75) {
+                    orientation = UIImageOrientationRight;
+                }
+                else if ([accData[0] isKindOfClass:[NSNumber class]] && [accData[0] floatValue] <= -0.75) {
+                    orientation = UIImageOrientationLeft;
+                }
+                else if ([accData[1] isKindOfClass:[NSNumber class]] && [accData[1] floatValue] <= -0.75) {
+                    orientation = UIImageOrientationUp;
+                }
+                else if ([accData[1] isKindOfClass:[NSNumber class]] && [accData[1] floatValue] >= 0.75) {
+                    orientation = UIImageOrientationDown;
+                }
+
                 filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:orientation];
-            }
-        } else {
-            if(!error){
+            } else {
                 filteredPhoto = [finalFilterInChain imageFromCurrentFramebuffer];
             }
-        }
 
-        dispatch_semaphore_signal(frameRenderingSemaphore);
+            dispatch_semaphore_signal(frameRenderingSemaphore);
+        }
 
         block(filteredPhoto, error);
     }];
@@ -209,8 +207,8 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
         if(!error) {
             filteredPhoto = [finalFilterInChain imageFromCurrentFramebufferWithOrientation:orientation];
+            dispatch_semaphore_signal(frameRenderingSemaphore);
         }
-        dispatch_semaphore_signal(frameRenderingSemaphore);
 
         block(filteredPhoto, error);
     }];
@@ -233,8 +231,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
             }
 
 //            reportAvailableMemoryForGPUImage(@"After autorelease pool");
-        }else{
-            dispatch_semaphore_signal(frameRenderingSemaphore);
         }
 
         block(dataForJPEGFile, error);
@@ -253,8 +249,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
                 dataForJPEGFile = UIImageJPEGRepresentation(filteredPhoto, self.jpegCompressionQuality);
             }
-        } else {
-            dispatch_semaphore_signal(frameRenderingSemaphore);
         }
 
         block(dataForJPEGFile, error);
@@ -271,8 +265,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
                 dispatch_semaphore_signal(frameRenderingSemaphore);
                 dataForPNGFile = UIImagePNGRepresentation(filteredPhoto);
             }
-        }else{
-            dispatch_semaphore_signal(frameRenderingSemaphore);
         }
 
         block(dataForPNGFile, error);
@@ -291,8 +283,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
                 dispatch_semaphore_signal(frameRenderingSemaphore);
                 dataForPNGFile = UIImagePNGRepresentation(filteredPhoto);
             }
-        }else{
-            dispatch_semaphore_signal(frameRenderingSemaphore);
         }
 
         block(dataForPNGFile, error);
@@ -305,8 +295,6 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
 
 - (void)capturePhotoProcessedUpToFilter:(GPUImageOutput<GPUImageInput> *)finalFilterInChain withImageOnGPUHandler:(void (^)(NSError *error))block
 {
-    dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
-
     if(photoOutput.isCapturingStillImage){
         block([NSError errorWithDomain:AVFoundationErrorDomain code:AVErrorMaximumStillImageCaptureRequestsExceeded userInfo:nil]);
         return;
@@ -317,6 +305,8 @@ void GPUImageCreateResizedSampleBuffer(CVPixelBufferRef cameraFrame, CGSize fina
             block(error);
             return;
         }
+
+        dispatch_semaphore_wait(frameRenderingSemaphore, DISPATCH_TIME_FOREVER);
 
         CFRetain(imageSampleBuffer);
         dispatch_async(bufferProcessingQueue, ^{
