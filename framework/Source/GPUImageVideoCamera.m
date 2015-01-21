@@ -583,12 +583,17 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
     }
 }
 
-- (void)forceContinuousAutoFocus {
-    if ([_inputCamera isFocusModeSupported:AVCaptureFocusModeAutoFocus] && [_inputCamera lockForConfiguration:NULL]) {
-        _inputCamera.focusMode = AVCaptureFocusModeAutoFocus;
-        [_inputCamera unlockForConfiguration];
+- (CGPoint)focusPointOfInterest {
+    if ([self supportsFocusPointOfInterest]) {
+        return [_inputCamera focusPointOfInterest];
     }
-    
+
+    return CGPointMake(0.5, 0.5);
+}
+
+- (void)forceContinuousAutoFocus {
+    [self forceAutoFocusToPoint:CGPointMake(0.5, 0.5)];
+
     AVCaptureDevice *localDevice = _inputCamera;
     double delayInSeconds = 2.0;
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
@@ -598,6 +603,18 @@ NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString = SHAD
             [localDevice unlockForConfiguration];
         }
     });
+}
+
+- (void)forceAutoFocusToPoint:(CGPoint)point {
+    if ([_inputCamera isFocusModeSupported:AVCaptureFocusModeAutoFocus] && [_inputCamera lockForConfiguration:NULL]) {
+        if ([self supportsFocusPointOfInterest]) {
+            [_inputCamera setFocusPointOfInterest:point];
+        }
+
+        _inputCamera.focusMode = AVCaptureFocusModeAutoFocus;
+
+        [_inputCamera unlockForConfiguration];
+    }
 }
 
 - (void)setCaptureSessionPreset:(NSString *)captureSessionPreset;

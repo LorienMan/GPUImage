@@ -158,10 +158,12 @@ extern NSString *const kGPUImageYUVVideoRangeConversionForLAFragmentShaderString
  */
 - (BOOL)supportsFocusPointOfInterest;
 - (void)setFocusPointOfInterest:(CGPoint)point;
+- (CGPoint)focusPointOfInterest;
 
 /** Force focus
  */
 - (void)forceContinuousAutoFocus;
+- (void)forceAutoFocusToPoint:(CGPoint)point;
 
 /// @name Benchmarking
 
