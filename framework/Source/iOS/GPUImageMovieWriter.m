@@ -634,7 +634,8 @@ void main()
     }
 
     if (!_bufferToProcessAtNextAudioBuffer) {
-        _bufferToProcessAtNextAudioBuffer = [self pixelBufferFromCGImage:[imageToProcessAtNextAudioBuffer CGImage] andSize:imageToProcessAtNextAudioBuffer.size andOrientation:imageToProcessAtNextAudioBuffer.imageOrientation];
+        _bufferToProcessAtNextAudioBuffer = [self pixelBufferFromCGImage:[imageToProcessAtNextAudioBuffer CGImage]
+                                                          andOrientation:imageToProcessAtNextAudioBuffer.imageOrientation];
     }
 
     while( ! assetWriterVideoInput.readyForMoreMediaData && ! _encodingLiveVideo && ! videoEncodingIsFinished ) {
@@ -662,25 +663,24 @@ void main()
     previousFrameTime = frameTime;
 }
 
-- (CVPixelBufferRef)pixelBufferFromCGImage:(CGImageRef)image andSize:(CGSize)frameSize andOrientation:(UIImageOrientation)orientation {
-    NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSNumber numberWithBool:YES], (__bridge NSString *) kCVPixelBufferCGImageCompatibilityKey,
-            [NSNumber numberWithBool:YES], (__bridge NSString *) kCVPixelBufferCGBitmapContextCompatibilityKey,
-            nil];
+- (CVPixelBufferRef)pixelBufferFromCGImage:(CGImageRef)image andOrientation:(UIImageOrientation)orientation {
     CVPixelBufferRef pxBuffer = NULL;
-    CVReturn status = CVPixelBufferCreate(kCFAllocatorDefault, (NSUInteger) frameSize.width,
-            (NSUInteger) frameSize.height, kCVPixelFormatType_32ARGB, (__bridge CFDictionaryRef) options,
-            &pxBuffer);
+
+    CVReturn status = CVPixelBufferPoolCreatePixelBuffer (NULL, [assetWriterPixelBufferInput pixelBufferPool], &pxBuffer);
     NSParameterAssert(status == kCVReturnSuccess && pxBuffer != NULL);
+
+    CVBufferSetAttachment(pxBuffer, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
+    CVBufferSetAttachment(pxBuffer, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_601_4, kCVAttachmentMode_ShouldPropagate);
+    CVBufferSetAttachment(pxBuffer, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
 
     CVPixelBufferLockBaseAddress(pxBuffer, 0);
     void *pxData = CVPixelBufferGetBaseAddress(pxBuffer);
     NSParameterAssert(pxData != NULL);
 
     CGColorSpaceRef rgbColorSpace = CGColorSpaceCreateDeviceRGB();
-    CGContextRef context = CGBitmapContextCreate(pxData, (NSUInteger) frameSize.width,
-            (NSUInteger) frameSize.height, 8, CVPixelBufferGetBytesPerRow(pxBuffer), rgbColorSpace,
-            (CGBitmapInfo) kCGImageAlphaPremultipliedFirst);
+    CGContextRef context = CGBitmapContextCreate(pxData, (NSUInteger) videoSize.width,
+            (NSUInteger) videoSize.height, 8, CVPixelBufferGetBytesPerRow(pxBuffer), rgbColorSpace,
+            (CGBitmapInfo) (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little));
     NSParameterAssert(context);
 
 
@@ -690,33 +690,33 @@ void main()
             break;
 
         case UIImageOrientationUpMirrored:
-            transform = CGAffineTransformMakeTranslation(frameSize.width, 0.0);
+            transform = CGAffineTransformMakeTranslation(videoSize.width, 0.0);
             transform = CGAffineTransformScale(transform, -1.0, 1.0);
             break;
 
         case UIImageOrientationDown:
-            transform = CGAffineTransformMakeTranslation(frameSize.width, frameSize.height);
+            transform = CGAffineTransformMakeTranslation(videoSize.width, videoSize.height);
             transform = CGAffineTransformRotate(transform, M_PI);
             break;
 
         case UIImageOrientationDownMirrored:
-            transform = CGAffineTransformMakeTranslation(0.0, frameSize.height);
+            transform = CGAffineTransformMakeTranslation(0.0, videoSize.height);
             transform = CGAffineTransformScale(transform, 1.0, -1.0);
             break;
 
         case UIImageOrientationLeft:
-            transform = CGAffineTransformMakeTranslation(frameSize.height, 0.0);
+            transform = CGAffineTransformMakeTranslation(videoSize.height, 0.0);
             transform = CGAffineTransformRotate(transform, M_PI_2);
             break;
 
         case UIImageOrientationLeftMirrored:
-            transform = CGAffineTransformMakeTranslation(frameSize.height, frameSize.width);
+            transform = CGAffineTransformMakeTranslation(videoSize.height, videoSize.width);
             transform = CGAffineTransformScale(transform, -1.0, 1.0);
             transform = CGAffineTransformRotate(transform, -M_PI_2);
             break;
 
         case UIImageOrientationRight:
-            transform = CGAffineTransformMakeTranslation(0.0, frameSize.width);
+            transform = CGAffineTransformMakeTranslation(0.0, videoSize.width);
             transform = CGAffineTransformRotate(transform, -M_PI_2);
             break;
 
@@ -735,13 +735,13 @@ void main()
 //        case UIImageOrientationRight:
         case UIImageOrientationRightMirrored:
             CGContextScaleCTM(context, -1.0, 1.0);
-//            CGContextTranslateCTM(context, -frameSize.height, 0.0);
+//            CGContextTranslateCTM(context, -videoSize.height, 0.0);
             break;
 
         case UIImageOrientationUpMirrored:
         case UIImageOrientationDownMirrored:
             CGContextScaleCTM(context, 1.0, -1.0);
-//            CGContextTranslateCTM(context, 0.0, -frameSize.height);
+//            CGContextTranslateCTM(context, 0.0, -videoSize.height);
             break;
 
         default:
@@ -750,7 +750,7 @@ void main()
 
     CGContextConcatCTM(context, transform);
 
-    CGContextDrawImage(context, CGRectMake(0, 0, frameSize.width, frameSize.height), image);
+    CGContextDrawImage(context, CGRectMake(0, 0, videoSize.width, videoSize.height), image);
 
     CGColorSpaceRelease(rgbColorSpace);
     CGContextRelease(context);
@@ -783,7 +783,7 @@ void main()
         CVBufferSetAttachment(renderTarget, kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
         CVBufferSetAttachment(renderTarget, kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_601_4, kCVAttachmentMode_ShouldPropagate);
         CVBufferSetAttachment(renderTarget, kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2, kCVAttachmentMode_ShouldPropagate);
-
+//
         CVOpenGLESTextureCacheCreateTextureFromImage (kCFAllocatorDefault, [_movieWriterContext coreVideoTextureCache], renderTarget,
                 NULL, // texture attributes
                 GL_TEXTURE_2D,
